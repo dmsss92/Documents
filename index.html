@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Data Records Viewer</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; max-width: 1200px; margin: auto; }
+    
+    /* Login Screen Styles */
+    #login-container { text-align: center; margin-top: 100px; border: 1px solid #ccc; padding: 40px; border-radius: 8px; background: #f9f9f9; }
+    input[type="password"] { padding: 10px; font-size: 16px; width: 250px; margin-bottom: 15px; }
+    button { padding: 10px 20px; font-size: 16px; cursor: pointer; background-color: #0056b3; color: white; border: none; border-radius: 4px; }
+    button:hover { background-color: #004494; }
+    #error-msg { color: red; margin-top: 15px; font-weight: bold; }
+
+    /* Table Styles */
+    table { border-collapse: collapse; width: 100%; margin-bottom: 40px; }
+    th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+    th { background-color: #f4f4f4; }
+    h2 { color: #333; border-bottom: 2px solid #ccc; padding-bottom: 5px; margin-top: 30px; }
+    a.doc-link { color: #0056b3; text-decoration: none; font-weight: bold; }
+    a.doc-link:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+
+  <!-- Login Section -->
+  <div id="login-container">
+    <h1>Secure Records Access</h1>
+    <input type="password" id="password-input" placeholder="Enter Password">
+    <br>
+    <button onclick="fetchData()">View Records</button>
+    <div id="error-msg"></div>
+  </div>
+
+  <!-- Data Section (Hidden initially) -->
+  <div id="data-container" style="display: none;">
+    <h1>Records Viewer</h1>
+    <div id="tables-container"></div>
+  </div>
+
+  <script>
+    const googleApiUrl = "https://script.google.com/macros/s/AKfycbzxQqb8ren4gauctLvT06udR3ObLruvm8tkdZOuwszEcjN3HCItXNpNBS1qwpoP7mwJ2Q/exec"; 
+    
+    const titleMapping = {
+      'Ch. Kishan Lal SOCIETY': 'Ch. Kishan Lal Memorial & Educational Charitable Society',
+      'Smt. Ramkali Devi SOCIETY': 'Smt. Ramkali Devi Memorial & Educational Charitable Society'
+    };
+
+    function fetchData() {
+      const pwd = document.getElementById('password-input').value;
+      const errorMsg = document.getElementById('error-msg');
+      const tablesContainer = document.getElementById('tables-container');
+      
+      if (!pwd) {
+        errorMsg.textContent = "Please enter a password.";
+        return;
+      }
+
+      errorMsg.textContent = "Authenticating...";
+      
+      // Send the password to Google Apps Script in the URL
+      const fetchUrl = googleApiUrl + "?pwd=" + encodeURIComponent(pwd) + "&timestamp=" + new Date().getTime();
+
+      fetch(fetchUrl)
+        .then(response => response.json())
+        .then(dataObj => {
+          // Check if Google sent back an error message due to wrong password
+          if (dataObj.error) {
+            errorMsg.textContent = dataObj.error;
+          } else {
+            // Password is correct, hide login and show data
+            document.getElementById('login-container').style.display = 'none';
+            document.getElementById('data-container').style.display = 'block';
+            buildTables(dataObj, tablesContainer);
+          }
+        })
+        .catch(error => {
+          errorMsg.textContent = "Network error occurred.";
+          console.error("Error:", error);
+        });
+    }
+
+    function buildTables(dataObj, container) {
+      container.innerHTML = ''; 
+      for (const tabName in dataObj) {
+        const rows = dataObj[tabName];
+        if (rows.length === 0) continue;
+
+        const title = document.createElement('h2');
+        title.textContent = titleMapping[tabName] || tabName;
+        container.appendChild(title);
+
+        const table = document.createElement('table');
+        const thead = document.createElement('thead');
+        const tbody = document.createElement('tbody');
+
+        const headers = rows[0];
+        const trHead = document.createElement('tr');
+        headers.forEach(headerObj => {
+          const th = document.createElement('th');
+          th.textContent = headerObj.text;
+          trHead.appendChild(th);
+        });
+        thead.appendChild(trHead);
+
+        for (let i = 1; i < rows.length; i++) {
+          const tr = document.createElement('tr');
+          rows[i].forEach(cellObj => {
+            const td = document.createElement('td');
+            let linkUrl = cellObj.link;
+            if (!linkUrl && cellObj.text.startsWith('http')) linkUrl = cellObj.text; 
+
+            if (linkUrl) {
+              td.innerHTML = `<a class="doc-link" href="${linkUrl}" target="_blank">${cellObj.text}</a>`;
+            } else {
+              td.textContent = cellObj.text;
+            }
+            tr.appendChild(td);
+          });
+          tbody.appendChild(tr);
+        }
+        table.appendChild(thead);
+        table.appendChild(tbody);
+        container.appendChild(table);
+      }
+    }
+  </script>
+</body>
+</html>
